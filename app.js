@@ -1,80 +1,58 @@
+require('dotenv').config();
 const express = require('express');
-const path = require('path');
+const mongoose = require('mongoose');
 
+// Создаем экземпляр приложения Express
 const app = express();
 
-const projects = [
-  {
-    id: 1,
-    name: 'Проект 1',
-    images: [
-      { id: 1, name: 'project1_1.jpg', path: 'project1_1.jpg' },
-    ]
-  },
-  {
-    id: 2,
-    name: 'Проект 2',
-    images: [
-      { id: 1, name: 'project2_1.jpg', path: 'project2_1.jpg' },
-      { id: 2, name: 'project2_2.jpg', path: 'project2_2.jpg' }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Проект 3',
-    images: [
-      { id: 1, name: 'project3_1.jpg', path: 'project3_1.jpg' }
-    ]
-  }
-];
+// Подключаемся к базе данных MongoDB
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => {
+    console.log('Успешное подключение к базе данных MongoDB');
+  })
+  .catch((error) => {
+    console.error('Ошибка подключения к базе данных MongoDB:', error);
+  });
 
-app.use(express.static('images'));
+// Определяем схему и модель для проекта
+const projectSchema = new mongoose.Schema({
+  name: String,
+  image: String,
+});
 
+const Project = mongoose.model('Project', projectSchema);
+
+// Роуты
 app.get('/projects', (req, res) => {
-  res.json(projects);
+  Project.find()
+    .then((projects) => {
+      res.json(projects);
+    })
+    .catch((error) => {
+      res.status(500).json({ error: 'Произошла ошибка при получении проектов' });
+    });
 });
 
 app.get('/projects/:id', (req, res) => {
-  const projectId = parseInt(req.params.id);
-  const project = projects.find(p => p.id === projectId);
-
-  if (project) {
-    res.json(project);
-  } else {
-    res.status(404).json({ error: 'Проект не найден' });
-  }
+  const projectId = req.params.id;
+  Project.findById(projectId)
+    .then((project) => {
+      if (project) {
+        res.json(project);
+      } else {
+        res.status(404).json({ error: 'Проект не найден' });
+      }
+    })
+    .catch((error) => {
+      res.status(500).json({ error: 'Произошла ошибка при получении проекта' });
+    });
 });
 
-app.get('/projects/:id/images', (req, res) => {
-  const projectId = parseInt(req.params.id);
-  const project = projects.find(p => p.id === projectId);
-
-  if (project && project.images) {
-    res.json(project.images);
-  } else {
-    res.status(404).json({ error: 'Изображения не найдены' });
-  }
-});
-
-app.get('/projects/:id/images/:imageId', (req, res) => {
-  const projectId = parseInt(req.params.id);
-  const imageId = parseInt(req.params.imageId);
-  const project = projects.find(p => p.id === projectId);
-
-  if (project && project.images) {
-    const image = project.images.find(img => img.id === imageId);
-
-    if (image) {
-      const imagePath = path.join(__dirname, 'images', image.path);
-      res.sendFile(imagePath);
-    } else {
-      res.status(404).json({ error: 'Изображение не найдено' });
-    }
-  } else {
-    res.status(404).json({ error: 'Проект не найден' });
-  }
-});
-
-app.listen(3000, () => {
-  console.log('Сервер запущен на порту 3000');
+// Запуск сервера
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Сервер запущен на порту ${port}`);
 });
